@@ -92,7 +92,7 @@ export function TaskPicker({ bot }: { bot: Bot }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-40 mt-1 w-[300px] overflow-hidden rounded-xl border border-hairline/50 bg-card py-1 shadow-2xl shadow-black/50">
+        <div className="fixed inset-x-3 top-24 z-40 w-auto overflow-hidden rounded-xl border border-hairline/50 bg-card py-1 shadow-2xl shadow-black/50 md:absolute md:inset-x-auto md:right-0 md:top-full md:mt-1 md:w-[300px]">
           <div className="max-h-[320px] overflow-y-auto">
             {tasks.map((task) => {
               const active = task.threadId === bot.threadId;

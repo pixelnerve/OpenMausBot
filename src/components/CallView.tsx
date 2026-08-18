@@ -156,7 +156,7 @@ export function CallTargetButton({
           id={helpId}
           role="group"
           aria-label="Call unavailable"
-          className="animate-pop-in absolute right-0 z-30 mt-1.5 w-[280px] rounded-xl border border-hairline bg-panel p-3 text-left shadow-2xl"
+          className="animate-pop-in fixed inset-x-3 top-24 z-40 w-auto rounded-xl border border-hairline bg-panel p-3 text-left shadow-2xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:z-30 md:mt-1.5 md:w-[280px]"
         >
           <div className="text-[13px] font-medium text-ink">Call unavailable</div>
           <div className="mt-1 text-[12px] leading-[1.45] text-ink-secondary">{reason}</div>

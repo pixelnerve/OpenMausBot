@@ -219,7 +219,7 @@ export function ModelPicker({ bot, className }: { bot: Bot; className?: string }
           data-model-picker-content
           role="dialog"
           aria-label="Choose model"
-          className="absolute right-0 top-full z-30 mt-2 flex max-h-[min(480px,calc(100dvh-7rem))] w-[380px] overflow-hidden rounded-2xl border border-hairline/50 bg-card shadow-2xl shadow-black/50"
+          className="fixed inset-x-3 top-24 z-40 flex max-h-[calc(100dvh-7rem)] w-auto overflow-hidden rounded-2xl border border-hairline/50 bg-card shadow-2xl shadow-black/50 md:absolute md:inset-x-auto md:right-0 md:top-full md:z-30 md:mt-2 md:max-h-[min(480px,calc(100dvh-7rem))] md:w-[380px]"
         >
           <div className="flex w-14 shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline/40 bg-panel p-2">
             {(() => {

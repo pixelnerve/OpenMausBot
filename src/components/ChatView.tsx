@@ -962,15 +962,17 @@ export function ChatView({ bot }: { bot: Bot }) {
       <CallOverlay bot={bot} />
       {/* Header */}
       <div
+        data-bot-chat-header
         className={cn(
-          "flex items-center justify-between px-5 py-3",
-          // Room for the drawer button, which overlays this corner below md.
-          "pl-11 md:pl-5",
-          isWin && "pr-[148px]",
+          "flex flex-col items-stretch gap-1.5 px-3 py-2.5 pl-11",
+          "md:flex-row md:items-center md:justify-between md:gap-2 md:px-5 md:py-3",
+          // The mobile drawer button overlays the first row; Windows desktop
+          // controls overlay the opposite side of the full-width drag strip.
+          isWin && "md:pr-[148px]",
         )}
         style={drag}
       >
-        <div className="flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1" style={noDrag}>
+        <div className="flex min-w-0 items-center gap-2.5 self-stretch rounded-lg px-1.5 py-1 md:self-auto" style={noDrag}>
           <button
             onClick={() => dispatch({ type: "toggleSettings" })}
             className="flex shrink-0 items-center rounded-lg p-0.5 hover:bg-raised/50"
@@ -987,54 +989,60 @@ export function ChatView({ bot }: { bot: Bot }) {
           <RenameTitle
             value={bot.name}
             onCommit={(name) => dispatch({ type: "updateBot", botId: bot.id, patch: { name } })}
-            className="truncate text-[15px] font-semibold text-ink"
+            className="min-w-0 truncate text-[15px] font-semibold text-ink"
             inputClassName="max-w-[220px] rounded bg-inset px-1.5 py-0.5 text-[15px] font-semibold"
           />
           {bot.chiefOfStaff && (
-            <span className="flex items-center gap-1 rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent">
+            <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent">
               <Crown size={11} /> Chief of Staff
             </span>
           )}
-          {bot.busy && <Loader2 size={14} className="animate-spin text-ink-secondary" />}
+          {bot.busy && <Loader2 size={14} className="shrink-0 animate-spin text-ink-secondary" />}
         </div>
-        <div className="flex items-center gap-2" style={noDrag}>
-          {bot.busy && (
+        <div
+          data-bot-header-controls
+          className="-mx-3 min-w-0 overflow-x-auto px-3 pb-1 overscroll-x-contain md:mx-0 md:overflow-visible md:px-0 md:pb-0"
+          style={noDrag}
+        >
+          <div className="flex w-max items-center gap-2 [&>*]:shrink-0">
+            {bot.busy && (
+              <button
+                onClick={() => dispatch({ type: "interrupt", botId: bot.id })}
+                className="hidden items-center gap-1.5 rounded-full border border-hairline/40 bg-raised/60 px-2.5 py-1 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink md:flex"
+                title="Stop this turn"
+              >
+                <Square size={12} className="fill-current" />
+                Stop
+              </button>
+            )}
+            <TaskPicker bot={bot} />
+            <UsageChip bot={bot} />
+            <WorkingFolderChip bot={bot} />
+            <ModelPicker bot={bot} />
+            <CallButton bot={bot} />
             <button
-              onClick={() => dispatch({ type: "interrupt", botId: bot.id })}
-              className="flex items-center gap-1.5 rounded-full border border-hairline/40 bg-raised/60 px-2.5 py-1 text-[13px] text-ink-secondary hover:bg-raised hover:text-ink"
-              title="Stop this turn"
+              onClick={() => dispatch({ type: "toggleComputer" })}
+              className={cn(
+                "rounded-md p-1.5 hover:bg-raised",
+                state.computerOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
+              )}
+              title="Bot's computer"
             >
-              <Square size={12} className="fill-current" />
-              Stop
+              <Monitor size={18} />
             </button>
-          )}
-          <TaskPicker bot={bot} />
-          <UsageChip bot={bot} />
-          <WorkingFolderChip bot={bot} />
-          <ModelPicker bot={bot} />
-          <CallButton bot={bot} />
-          <button
-            onClick={() => dispatch({ type: "toggleComputer" })}
-            className={cn(
-              "rounded-md p-1.5 hover:bg-raised",
-              state.computerOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
-            )}
-            title="Bot's computer"
-          >
-            <Monitor size={18} />
-          </button>
-          <button
-            onClick={() => dispatch({ type: "toggleInspector" })}
-            aria-label="Inspector"
-            aria-pressed={state.inspectorOpen}
-            className={cn(
-              "rounded-md p-1.5 hover:bg-raised",
-              state.inspectorOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
-            )}
-            title="Inspector — runtime events and raw protocol for this thread"
-          >
-            <Bug size={18} />
-          </button>
+            <button
+              onClick={() => dispatch({ type: "toggleInspector" })}
+              aria-label="Inspector"
+              aria-pressed={state.inspectorOpen}
+              className={cn(
+                "rounded-md p-1.5 hover:bg-raised",
+                state.inspectorOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
+              )}
+              title="Inspector — runtime events and raw protocol for this thread"
+            >
+              <Bug size={18} />
+            </button>
+          </div>
         </div>
       </div>
 
