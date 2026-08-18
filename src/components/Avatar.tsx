@@ -13,24 +13,9 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
-import {
-  CursorAvatar,
-  DEFAULT_SILHOUETTE,
-  type CursorAvatarHandle,
-  type CursorSilhouette,
-} from "./CursorAvatar";
-
-/**
- * The pack's baked-in silhouette was exported with the body fill hardcoded
- * to black instead of the {{GRADIENT}} placeholder the component
- * substitutes, which painted every bot the same. Restore the slot so the
- * per-bot gradient actually lands on the body.
- */
-const GRADIENT_SILHOUETTE: CursorSilhouette = {
-  ...DEFAULT_SILHOUETTE,
-  body: DEFAULT_SILHOUETTE.body.replace(/fill="#000000"/g, 'fill="{{GRADIENT}}"'),
-};
+import { gradientForColor, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
+import { staticAvatarSettings } from "@/lib/mascot-paint";
+import { CursorAvatar, type CursorAvatarHandle } from "./CursorAvatar";
 
 /**
  * Legacy face-placement knobs from the Maus body era. The cursor mascot
@@ -61,7 +46,7 @@ interface MotionFaces
 const MOTION_FACE: MotionFaces = {
   arrive: { state: "spawning", spin: 900 },
   switch: { state: "waking", spin: 620 },
-  customize: { state: "proud", blink: true },
+  customize: { blink: true },
   alert: { state: "alerting" },
   thinking: { state: "thinking" },
   working: { state: "working" },
@@ -75,30 +60,6 @@ const MOTION_FACE: MotionFaces = {
 
 /** How long a one-shot motion holds its state before the bot's own returns. */
 const MOTION_FACE_MS = 1400;
-
-/** Channel-wise mix of a hex color toward another, t in 0..1. */
-function mix(hex: string, toward: string, t: number): string {
-  const a = Number.parseInt(hex.slice(1), 16);
-  const b = Number.parseInt(toward.slice(1), 16);
-  const channel = (shift: number) => {
-    const va = (a >> shift) & 0xff;
-    const vb = (b >> shift) & 0xff;
-    return Math.round(va + (vb - va) * t);
-  };
-  return `#${[channel(16), channel(8), channel(0)]
-    .map((part) => part.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-/**
- * Bot color -> the mascot's three-stop body gradient (highlight, base,
- * shadow), with the same light/dark spread as the pack's default green
- * ["#9FE6B5", "#3FAE6E", "#1C7A4C"].
- */
-const gradientFor = (color: MausColor): [string, string, string] => {
-  const fill = MAUS_COLORS[color] ?? MAUS_COLORS.green;
-  return [mix(fill, "#ffffff", 0.55), fill, mix(fill, "#000000", 0.42)];
-};
 
 export type MausAvatarHandle = CursorAvatarHandle;
 
@@ -189,6 +150,7 @@ function MausAvatarComponent(
     });
   };
   const onPointerLeave = () => setPointer({ x: 0, y: 0 });
+  const staticSettings = animated ? {} : staticAvatarSettings();
 
   return (
     <span
@@ -201,8 +163,7 @@ function MausAvatarComponent(
         state={motionState ?? state}
         expression={expression}
         size={size}
-        silhouette={GRADIENT_SILHOUETTE}
-        gradient={gradientFor(color)}
+        gradient={gradientForColor(color)}
         title={label ?? null}
         lookAround={forward ? 0 : 1}
         gaze={{ x: (gaze?.x ?? 0) + pointer.x, y: (gaze?.y ?? 0) + pointer.y }}
@@ -211,7 +172,7 @@ function MausAvatarComponent(
         eyeScale={eyeScale}
         showMouth={showMouth}
         mouthStroke={mouthStroke}
-        paused={!animated}
+        {...staticSettings}
       />
     </span>
   );

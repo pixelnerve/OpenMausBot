@@ -20,6 +20,7 @@
  * Made with Blob Studio.
  */
 import React, { useEffect, useId, useMemo, useRef } from 'react'
+import { paintMascotBody } from '@/lib/mascot-paint'
 
 /* ------------------------------------------------------------------- shape */
 
@@ -1565,9 +1566,9 @@ export const CursorAvatar = React.forwardRef<CursorAvatarHandle, CursorAvatarPro
     const paintRef = useRef(paint)
     paintRef.current = paint
 
-    const dimension = size.constructor === Number ? `${size}px` : size
+    const dimension = Number.isFinite(size) ? `${Number(size)}px` : size
     const label = title === undefined ? `${silhouette.name} mascot` : title
-    const body = silhouette.body.replace(/\{\{GRADIENT\}\}/g, `url(#${uid}-grad)`)
+    const body = paintMascotBody(silhouette.body, `url(#${uid}-grad)`)
 
     return (
       <svg

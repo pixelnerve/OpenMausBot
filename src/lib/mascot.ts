@@ -1,4 +1,5 @@
 import { CURSOR_STATES, type CursorState } from "@/components/CursorAvatar";
+import { gradientForHex } from "@/lib/mascot-paint";
 
 /** The mascot's behaviour vocabulary — CursorAvatar's 39 states, under the
  * app's historical names. */
@@ -73,6 +74,12 @@ export const MAUS_COLORS = {
   coral: "#E5634E",
 } satisfies Record<MausColor, string>;
 
+/** Bot color -> the mascot's highlight, base, and shadow body paint. */
+export function gradientForColor(color: MausColor): [string, string, string] {
+  const fill = MAUS_COLORS[color] ?? MAUS_COLORS.green;
+  return gradientForHex(fill);
+}
+
 export const MAUS_MOTIONS = [
   "arrive",
   "switch",
@@ -118,6 +125,7 @@ const KNOWN_STATES = new Set<string>(MAUS_STATES);
 /** Resolves any stored value — current, legacy or junk — to a real state. */
 export function normalizeState(value: string | null | undefined): MausState | null {
   if (!value) return null;
+  // SAFETY: Membership in KNOWN_STATES proves this persisted string is a current mascot state.
   if (KNOWN_STATES.has(value)) return value as MausState;
   return LEGACY_STATES[value] ?? null;
 }
