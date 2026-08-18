@@ -180,7 +180,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(argv).toContain("mcp_servers.agents.command");
     expect(argv).toContain("mcp_servers.agents.required=true");
     expect(argv).toContain('enabled_tools=["list_bots","ask_bot","delegate_bot"]');
-    expect(argv).toContain('default_tools_approval_mode="auto"');
+    expect(argv).toContain('default_tools_approval_mode="approve"');
     expect(argv).toContain("OMB_COMMS_TOKEN");
     expect(argv).not.toContain("per-boot-secret");
     expect(seen.env.OMB_COMMS_TOKEN).toBe("per-boot-secret");

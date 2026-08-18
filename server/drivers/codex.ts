@@ -129,7 +129,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           "-c", `${prefix}.env_vars=${JSON.stringify(Object.keys(agents.env))}`,
           "-c", `${prefix}.required=true`,
           "-c", `${prefix}.enabled_tools=["list_bots","ask_bot","delegate_bot"]`,
-          "-c", `${prefix}.default_tools_approval_mode="auto"`,
+          "-c", `${prefix}.default_tools_approval_mode="approve"`,
         );
       }
       if (turn.integrations?.composio) {
