@@ -21,7 +21,7 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import { Composer } from "./Composer";
 import { ConnectorCard } from "./ConnectorCard";
 import { GroupCallButton, GroupCallOverlay } from "./GroupCallView";
-import { ReactionBar, ReactionChips } from "./Reactions";
+import { MobileReactionMenu, ReactionBar, ReactionChips } from "./Reactions";
 import { ApprovalCard } from "./ApprovalCard";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { cn } from "@/lib/cn";
@@ -52,6 +52,7 @@ function ClusterLabel({ bot, name, color }: { bot?: Bot; name: string; color: st
   return (
     <div className="mt-1 flex items-center gap-1.5 pl-0.5">
       <MausAvatar
+        // SAFETY: stored room sender colors are produced from the same palette as Bot.color.
         color={(bot?.color ?? color) as Bot["color"]}
         state={normalizeState(bot?.mascotExpression) ?? "happy"}
         size={16}
@@ -108,19 +109,30 @@ const Transcript = memo(function Transcript({
             </div>
           ) : m.kind === "text" && m.text ? (
             <div className={cn("group flex w-full flex-col", user ? "items-end" : "items-start")}>
-              <div className={cn("flex w-full items-end gap-1.5", user ? "justify-end" : "justify-start")}>
-                {user && <ReactionBar threadId={group.threadId} message={m} />}
+              <div className={cn("flex w-full min-w-0 items-end gap-1.5", user ? "justify-end" : "justify-start")}>
+                {user && (
+                  <div className="hidden sm:block"><ReactionBar threadId={group.threadId} message={m} /></div>
+                )}
                 <div
-                  className={cn(
-                    "max-w-[70%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed",
-                    user ? "whitespace-pre-wrap bg-bubble-user text-ink" : "bg-card text-ink",
-                  )}
-                  title={new Date(m.at).toLocaleString()}
+                  className="relative min-w-0 max-w-[92%] sm:max-w-[70%]"
+                  data-room-message-bubble-wrapper
                 >
-                  {user ? m.text : <ChatMarkdown text={m.text} />}
+                  <div
+                    className={cn(
+                      "min-w-0 break-words rounded-2xl px-4 py-2.5 pr-12 text-[15px] leading-relaxed sm:pr-4",
+                      user ? "whitespace-pre-wrap bg-bubble-user text-ink" : "bg-card text-ink",
+                    )}
+                    data-room-message-bubble={user ? "user" : "participant"}
+                    title={new Date(m.at).toLocaleString()}
+                  >
+                    {user ? m.text : <ChatMarkdown text={m.text} />}
+                  </div>
+                  <MobileReactionMenu threadId={group.threadId} message={m} />
                 </div>
-                {!user && <ReactionBar threadId={group.threadId} message={m} />}
-                <span className="self-end pb-1 text-[11px] tabular-nums text-ink-secondary/70 opacity-0 transition-opacity group-hover:opacity-100">
+                {!user && (
+                  <div className="hidden sm:block"><ReactionBar threadId={group.threadId} message={m} /></div>
+                )}
+                <span className="hidden self-end pb-1 text-[11px] tabular-nums text-ink-secondary/70 opacity-0 transition-opacity group-hover:opacity-100 sm:inline">
                   {formatTime(m.at)}
                 </span>
               </div>
@@ -150,7 +162,7 @@ function StreamingBubble({ text }: { text: string }) {
   const deferred = useDeferredValue(text);
   return (
     <div className="flex w-full justify-start">
-      <div className="max-w-[70%] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink">
+      <div className="min-w-0 max-w-[92%] break-words rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink sm:max-w-[70%]">
         <ChatMarkdown text={deferred} streaming />
         <span className="animate-caret ml-0.5 inline-block h-[14px] w-[2px] bg-ink align-middle" />
       </div>
@@ -442,7 +454,9 @@ export function GroupView({ group }: { group: Group }) {
   };
 
   const isWin = window.ogb?.platform === "win32";
+  // SAFETY: Electron supports this vendor style even though React's CSS type omits it.
   const drag = isWin ? ({ WebkitAppRegion: "drag" } as React.CSSProperties) : undefined;
+  // SAFETY: Electron supports this vendor style even though React's CSS type omits it.
   const noDrag = isWin ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties) : undefined;
 
   return (
@@ -533,7 +547,7 @@ export function GroupView({ group }: { group: Group }) {
       {/* Transcript */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-5 [overflow-anchor:none]"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 [overflow-anchor:none] sm:px-5"
         onWheel={(e) => {
           if (e.deltaY < 0) setBottomFollow(false);
           else if (atEnd()) setBottomFollow(true);

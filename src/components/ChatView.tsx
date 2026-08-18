@@ -1,4 +1,5 @@
 import { Component, memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   ArrowDown,
@@ -14,6 +15,7 @@ import {
   Folder,
   Loader2,
   Monitor,
+  MoreHorizontal,
   Pencil,
   RefreshCw,
   Square,
@@ -43,7 +45,7 @@ import { ConnectorCard } from "./ConnectorCard";
 import { ModelPicker } from "./ModelPicker";
 import { RenameTitle } from "./RenameTitle";
 import { TaskPicker } from "./TaskPicker";
-import { ReactionBar, ReactionChips } from "./Reactions";
+import { REACTION_SET, ReactionBar, ReactionChips } from "./Reactions";
 import { SpeakButton } from "./SpeakButton";
 import { CallButton, CallOverlay } from "./CallView";
 import { cn } from "@/lib/cn";
@@ -228,7 +230,7 @@ function BubbleEditor({
     if (draft.trim()) onSubmit(draft.trim());
   };
   return (
-    <div className="w-full max-w-[70%] rounded-2xl border border-hairline/40 bg-bubble-user px-4 py-3">
+    <div className="w-full max-w-[92%] rounded-2xl border border-hairline/40 bg-bubble-user px-4 py-3 sm:max-w-[70%]">
       <textarea
         ref={ref}
         value={draft}
@@ -259,6 +261,146 @@ function BubbleEditor({
           Send
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Hover controls reserve flex width even while transparent. On phones, keep
+ * the complete action set behind one overlaid touch target so the message owns
+ * the row width. */
+function MobileMessageActions({
+  bot,
+  message,
+  copyText,
+  canEdit,
+  canRegenerate,
+  onStartEdit,
+  onRegenerate,
+}: {
+  bot: Bot;
+  message: Message;
+  copyText: string;
+  canEdit: boolean;
+  canRegenerate: boolean;
+  onStartEdit: () => void;
+  onRegenerate?: () => void;
+}) {
+  const { dispatch } = useStore();
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="absolute right-0.5 top-0.5 z-10 sm:hidden" data-mobile-message-actions>
+      <button
+        type="button"
+        aria-label="Message actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+        className="flex size-11 items-center justify-center rounded-full bg-black/15 text-ink-secondary backdrop-blur-sm hover:bg-black/25 hover:text-ink"
+      >
+        <MoreHorizontal size={18} />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label="Message actions"
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] z-50 flex flex-wrap items-center justify-center gap-1 rounded-xl border border-hairline/50 bg-card p-1.5 shadow-2xl shadow-black/50 sm:hidden"
+          >
+            {canEdit && (
+              <button
+                type="button"
+                role="menuitem"
+                aria-label="Edit message"
+                onClick={() => {
+                  setOpen(false);
+                  onStartEdit();
+                }}
+                className="flex size-11 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink"
+              >
+                <Pencil size={16} />
+              </button>
+            )}
+            {message.kind === "text" && REACTION_SET.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                role="menuitem"
+                aria-label={`React ${emoji}`}
+                onClick={() => {
+                  dispatch({ type: "toggleReaction", threadId: bot.threadId, messageId: message.id, emoji });
+                  setOpen(false);
+                }}
+                className="flex size-11 items-center justify-center rounded-lg text-[17px] hover:bg-raised"
+              >
+                {emoji}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="menuitem"
+              aria-label="Copy message"
+              onClick={() => {
+                void navigator.clipboard?.writeText(copyText);
+                setCopied(true);
+                setTimeout(() => {
+                  setCopied(false);
+                  setOpen(false);
+                }, 700);
+              }}
+              className="flex size-11 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink"
+            >
+              {copied ? <Check size={16} className="text-success" /> : <Copy size={16} />}
+            </button>
+            {message.role !== "user" && message.kind === "text" && (
+              <SpeakButton
+                text={copyText}
+                botId={bot.id}
+                messageId={message.id}
+                voiceId={bot.voice}
+                className="flex size-11 items-center justify-center p-0 opacity-100"
+              />
+            )}
+            {canRegenerate && onRegenerate && (
+              <button
+                type="button"
+                role="menuitem"
+                aria-label="Regenerate response"
+                onClick={() => {
+                  setOpen(false);
+                  onRegenerate();
+                }}
+                className="flex size-11 items-center justify-center rounded-lg text-ink-secondary hover:bg-raised hover:text-ink"
+              >
+                <RefreshCw size={16} />
+              </button>
+            )}
+            <span className="px-2 text-[11px] tabular-nums text-ink-secondary/80">{formatTime(message.at)}</span>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -308,34 +450,38 @@ function Bubble({
 
   return (
     <div className={cn("group animate-msg-in flex w-full flex-col", user ? "items-end" : "items-start")}>
-      <div className={cn("flex w-full items-center gap-1.5", user ? "justify-end" : "justify-start")}>
+      <div className={cn("flex w-full min-w-0 items-end gap-1.5", user ? "justify-end" : "justify-start")}>
         {/* editing rewinds the thread, so it waits for the turn to end —
             same rule as the version switcher below */}
         {user && message.kind === "text" && !webhookView && !bot.busy && (
           <button
             onClick={onStartEdit}
             aria-label="Edit message"
-            className="rounded-md p-1.5 text-ink-secondary opacity-0 transition-opacity hover:bg-raised hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+            className="hidden rounded-md p-1.5 text-ink-secondary opacity-0 transition-opacity hover:bg-raised hover:text-ink focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 sm:block"
             title="Edit message"
           >
             <Pencil size={14} />
           </button>
         )}
-        {user && message.kind === "text" && <ReactionBar threadId={bot.threadId} message={message} />}
-        {user && <CopyButton text={visibleText} />}
-        <div
-          className={cn(
-            "max-w-[70%] rounded-2xl text-[15px] leading-relaxed",
-            user && webhookView
-              ? "overflow-hidden border border-accent/25 bg-card text-ink shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
-              : user
-                ? "bg-bubble-user px-4 py-2.5 whitespace-pre-wrap text-ink"
-                : "bg-card px-4 py-2.5 text-ink",
-          )}
-          title={new Date(message.at).toLocaleString()}
-        >
+        {user && message.kind === "text" && (
+          <div className="hidden sm:block"><ReactionBar threadId={bot.threadId} message={message} /></div>
+        )}
+        {user && <CopyButton text={visibleText} className="hidden sm:block" />}
+        <div className="relative min-w-0 max-w-[92%] sm:max-w-[70%]" data-message-bubble-wrapper>
+          <div
+            className={cn(
+              "min-w-0 break-words rounded-2xl text-[15px] leading-relaxed",
+              user && webhookView
+                ? "overflow-hidden border border-accent/25 bg-card text-ink shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+                : user
+                  ? "bg-bubble-user px-4 py-2.5 pr-12 whitespace-pre-wrap text-ink sm:pr-4"
+                  : "bg-card px-4 py-2.5 pr-12 text-ink sm:pr-4",
+            )}
+            data-message-bubble={user ? "user" : "assistant"}
+            title={new Date(message.at).toLocaleString()}
+          >
           {user && webhookView ? (
-            <div className="min-w-[300px] max-w-[520px]">
+            <div className="min-w-0 max-w-[520px]">
               <div className="flex items-center gap-2 border-b border-accent/15 bg-accent/[0.055] px-4 py-2.5 text-[11.5px] font-medium text-accent">
                 <Webhook size={13} />
                 <span>Webhook task</span>
@@ -371,9 +517,19 @@ function Bubble({
               <ChatMarkdown text={text} />
             </MessageBoundary>
           )}
+          </div>
+          <MobileMessageActions
+            bot={bot}
+            message={message}
+            copyText={visibleText}
+            canEdit={user && message.kind === "text" && !webhookView && !bot.busy}
+            canRegenerate={!user && isLastBotText && !bot.busy && Boolean(onRegenerate)}
+            onStartEdit={onStartEdit}
+            onRegenerate={onRegenerate}
+          />
         </div>
         {!user && (
-          <div className="flex flex-col gap-0.5 self-end pb-0.5">
+          <div className="hidden flex-col gap-0.5 self-end pb-0.5 sm:flex">
             <CopyButton text={text} />
             {message.kind === "text" && (
               <SpeakButton text={text} botId={bot.id} messageId={message.id} voiceId={bot.voice} />
@@ -390,10 +546,12 @@ function Bubble({
             )}
           </div>
         )}
-        {!user && message.kind === "text" && <ReactionBar threadId={bot.threadId} message={message} />}
+        {!user && message.kind === "text" && (
+          <div className="hidden sm:block"><ReactionBar threadId={bot.threadId} message={message} /></div>
+        )}
         <span
           className={cn(
-            "self-end pb-1 text-[11px] tabular-nums text-ink-secondary/70 opacity-0 transition-opacity group-hover:opacity-100",
+            "hidden self-end pb-1 text-[11px] tabular-nums text-ink-secondary/70 opacity-0 transition-opacity group-hover:opacity-100 sm:inline",
             user ? "order-first mr-1" : "ml-1",
           )}
         >
@@ -485,7 +643,7 @@ function ScreenFrame({ png, mime }: { png: string; mime?: string }) {
       <img
         src={`data:${mime ?? "image/png"};base64,${png}`}
         alt="Bot's screen"
-        className="max-w-[70%] rounded-2xl border border-hairline/40"
+        className="max-w-[92%] rounded-2xl border border-hairline/40 sm:max-w-[70%]"
       />
     </div>
   );
@@ -497,7 +655,7 @@ function StreamingBubble({ text }: { text: string }) {
   const deferred = useDeferredValue(text);
   return (
     <div className="flex w-full justify-start">
-      <div className="max-w-[70%] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink">
+      <div className="min-w-0 max-w-[92%] break-words rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink sm:max-w-[70%]">
         <MessageBoundary fallbackText={deferred}>
           <ChatMarkdown text={deferred} streaming />
         </MessageBoundary>
@@ -793,7 +951,9 @@ export function ChatView({ bot }: { bot: Bot }) {
   // on Windows the frameless window's min/max/close overlay sits at the
   // top-right: the header becomes the drag strip and clears room for it
   const isWin = window.ogb?.platform === "win32";
+  // SAFETY: Electron supports this vendor style even though React's CSS type omits it.
   const drag = isWin ? ({ WebkitAppRegion: "drag" } as React.CSSProperties) : undefined;
+  // SAFETY: Electron supports this vendor style even though React's CSS type omits it.
   const noDrag = isWin ? ({ WebkitAppRegion: "no-drag" } as React.CSSProperties) : undefined;
 
   return (
@@ -890,7 +1050,7 @@ export function ChatView({ bot }: { bot: Bot }) {
       {/* Messages */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-5 [overflow-anchor:none]"
+        className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto px-3 [overflow-anchor:none] sm:px-5"
         onWheel={(e) => {
           if (e.deltaY < 0) setBottomFollow(false);
           else if (atEnd()) setBottomFollow(true);
