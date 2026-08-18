@@ -117,6 +117,21 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
 
       const env = childEnv();
       const appServerArgs = ["app-server", ...codexLocalProviderArgs(env, turn.model)];
+      if (turn.integrations?.agents) {
+        const agents = turn.integrations.agents;
+        // App-server resolves env_vars from its own child environment. Keep
+        // the credential value out of argv while exposing only peer tools.
+        Object.assign(env, agents.env);
+        const prefix = "mcp_servers.agents";
+        appServerArgs.push(
+          "-c", `${prefix}.command=${JSON.stringify(agents.command)}`,
+          "-c", `${prefix}.args=${JSON.stringify(agents.args)}`,
+          "-c", `${prefix}.env_vars=${JSON.stringify(Object.keys(agents.env))}`,
+          "-c", `${prefix}.required=true`,
+          "-c", `${prefix}.enabled_tools=["list_bots","ask_bot","delegate_bot"]`,
+          "-c", `${prefix}.default_tools_approval_mode="auto"`,
+        );
+      }
       if (turn.integrations?.composio) {
         const bridge = turn.integrations.composio;
         Object.assign(env, bridge.env);
@@ -500,6 +515,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         provider: DRIVER_KIND,
         capabilities: {
           sessionModelSwitch: "unsupported",
+          agentsMcp: true,
           composioMcp: true,
           phoneMcp: true,
           effortLevels: ["low", "medium", "high", "xhigh", "max"],

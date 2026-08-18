@@ -150,6 +150,42 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(seen.env.OMB_COMMS_TOKEN).toBe("per-boot-token");
   });
 
+  it("mounts bot communication without placing its credential value in argv", async () => {
+    await create();
+    const dump = join(scratch, "agents.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+    expect(instance.adapter.capabilities.agentsMcp).toBe(true);
+
+    await instance.adapter.sendTurn({
+      threadId: "t-agents",
+      text: "ask the specialist",
+      integrations: {
+        agents: {
+          command: process.execPath,
+          args: ["/tmp/agents-proxy.js"],
+          env: {
+            OMB_HARNESS_URL: "http://127.0.0.1:8799",
+            OMB_BOT_ID: "bot-chief",
+            OMB_THREAD_ID: "t-agents",
+            OMB_COMMS_TOKEN: "per-boot-secret",
+            OMB_TURN_DEPTH: "0",
+          },
+        },
+      },
+    });
+    await recorder.until((event) => event.type === "turn.completed");
+
+    const seen = JSON.parse(readFileSync(dump, "utf8"));
+    const argv = seen.argv.join(" ");
+    expect(argv).toContain("mcp_servers.agents.command");
+    expect(argv).toContain("mcp_servers.agents.required=true");
+    expect(argv).toContain('enabled_tools=["list_bots","ask_bot","delegate_bot"]');
+    expect(argv).toContain('default_tools_approval_mode="auto"');
+    expect(argv).toContain("OMB_COMMS_TOKEN");
+    expect(argv).not.toContain("per-boot-secret");
+    expect(seen.env.OMB_COMMS_TOKEN).toBe("per-boot-secret");
+  });
+
   it("sends the local provider when the picker id is custom-encoded", async () => {
     await create({ environment: { UNSLOTH_STUDIO_AUTH_TOKEN: "unsloth-secret" } });
     const dump = join(scratch, "dump.json");
