@@ -8,10 +8,14 @@ import {
   Bot as BotIcon,
   CalendarDays,
   Check,
+  ChevronDown,
+  ChevronRight,
   ClipboardCopy,
   Copy,
   Crown,
+  Folder,
   FolderPlus,
+  Folders,
   Library,
   Loader2,
   Pencil,
@@ -37,6 +41,9 @@ import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { MIN_QUERY, SearchResults } from "./SearchResults";
 import { TeamLibraryPanel, type TeamImportResult } from "./TeamLibraryPanel";
 import { RenameTitle } from "./RenameTitle";
+import { botMatchesProjectSearch, groupBotsByProject } from "@/lib/bot-project-groups";
+
+const GROUP_BY_PROJECT_KEY = "openmausbot.sidebar.groupByProject";
 
 /** "Milind Soni" → "MS", "milind" → "M", "you@x.dev" → "Y", unset → "?" */
 function profileInitials(profile?: { name?: string; email?: string }): string {
@@ -753,6 +760,14 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     restoreBot?: { id: string; name: string };
   } | null>(null);
   const [query, setQuery] = useState("");
+  const [groupByProject, setGroupByProject] = useState(() => {
+    try {
+      return localStorage.getItem(GROUP_BY_PROJECT_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set());
 
   // Esc closes the drawer, mirroring ApiKeys.tsx:75-85. Bound only while the
   // drawer is open — on mobile, exactly when a bot/room context menu or the
@@ -772,6 +787,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     const timer = window.setTimeout(() => setTeamFeedback(null), 5000);
     return () => window.clearTimeout(timer);
   }, [teamFeedback]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GROUP_BY_PROJECT_KEY, String(groupByProject));
+    } catch {}
+  }, [groupByProject]);
 
   const exportAllBots = async () => {
     setExportingTeam(true);
@@ -883,19 +904,28 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     .filter(
       (b) =>
         !q ||
-        b.name.toLowerCase().includes(q) ||
-        (b.title ?? "").toLowerCase().includes(q) ||
+        botMatchesProjectSearch(b, q) ||
         preview(b).toLowerCase().includes(q),
     );
   const chiefBot = matchingBots.find((bot) => bot.chiefOfStaff);
   const visibleBots = matchingBots
     .filter((bot) => !bot.chiefOfStaff)
     .sort((a, b) => Number(b.pinned ?? false) - Number(a.pinned ?? false));
+  const projectGroups = groupBotsByProject(visibleBots);
   const visibleGroups = state.groups.filter((g) => !q || g.name.toLowerCase().includes(q));
   const activeBotCount = state.bots.filter((bot) => !bot.hidden).length;
   const archivedBots = state.bots.filter((bot) => bot.hidden);
   const pendingTeamUndo = teamFeedback?.undo;
   const pendingBotUndo = teamFeedback?.restoreBot;
+
+  const toggleProject = (key: string) => {
+    setCollapsedProjects((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <aside
@@ -1013,9 +1043,22 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setQuery("")}
             placeholder="Search"
-            aria-label="Search bots and messages"
-            className="w-full bg-transparent text-[14px] text-ink placeholder:text-ink-secondary focus:outline-none"
+            aria-label="Search bots, projects, and messages"
+            className="min-w-0 flex-1 bg-transparent text-[14px] text-ink placeholder:text-ink-secondary focus:outline-none"
           />
+          <button
+            type="button"
+            aria-label={groupByProject ? "Show a flat bot list" : "Group bots by project"}
+            aria-pressed={groupByProject}
+            title={groupByProject ? "Grouped by project" : "Group by project"}
+            onClick={() => setGroupByProject((value) => !value)}
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-inset hover:text-ink",
+              groupByProject ? "bg-inset text-ink" : "text-ink-secondary",
+            )}
+          >
+            <Folders size={16} />
+          </button>
         </div>
       </div>
 
@@ -1038,15 +1081,61 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           {visibleGroups.map((g) => (
             <GroupListItem key={g.id} group={g} onMenu={setRoomMenu} />
           ))}
-          {visibleBots.map((b) => (
-            <BotListItem
-              key={b.id}
-              bot={b}
-              onMenu={setMenu}
-              onArchive={(bot) => void archiveBot(bot)}
-              archiveDisabled={activeBotCount <= 1}
-            />
-          ))}
+          {groupByProject
+            ? projectGroups.map((group) => {
+                const collapsed = collapsedProjects.has(group.key) && !query.trim();
+                return (
+                  <section key={group.key} className="mt-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleProject(group.key)}
+                      title={group.cwd ?? "Bots without a configured working folder"}
+                      aria-expanded={!collapsed}
+                      className="flex min-h-9 w-full items-start gap-1.5 rounded-lg px-2 py-1.5 text-left text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-secondary hover:bg-raised/50 hover:text-ink"
+                    >
+                      {collapsed ? (
+                        <ChevronRight size={14} className="mt-0.5 shrink-0" />
+                      ) : (
+                        <ChevronDown size={14} className="mt-0.5 shrink-0" />
+                      )}
+                      <Folder size={14} className="mt-0.5 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{group.label}</span>
+                        {group.cwd && (
+                          <span className="block truncate text-[10px] font-normal normal-case tracking-normal opacity-70">
+                            {group.cwd}
+                          </span>
+                        )}
+                      </span>
+                      <span className="rounded-full bg-raised px-1.5 py-0.5 text-[11px] tabular-nums">
+                        {group.bots.length}
+                      </span>
+                    </button>
+                    {!collapsed && (
+                      <div className="flex flex-col gap-0.5">
+                        {group.bots.map((bot) => (
+                          <BotListItem
+                            key={bot.id}
+                            bot={bot}
+                            onMenu={setMenu}
+                            onArchive={(candidate) => void archiveBot(candidate)}
+                            archiveDisabled={activeBotCount <= 1}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })
+            : visibleBots.map((bot) => (
+                <BotListItem
+                  key={bot.id}
+                  bot={bot}
+                  onMenu={setMenu}
+                  onArchive={(candidate) => void archiveBot(candidate)}
+                  archiveDisabled={activeBotCount <= 1}
+                />
+              ))}
           <SearchResults query={query} onLanded={() => setQuery("")} />
         </div>
       </div>
