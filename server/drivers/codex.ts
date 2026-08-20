@@ -59,6 +59,7 @@ function mountMcpServer(
   env: Record<string, string | undefined>,
   name: string,
   server: StdioMcpServer,
+  approvalMode: "auto" | "approve" = "auto",
 ): void {
   Object.assign(env, server.env);
   const prefix = `mcp_servers.${name}`;
@@ -68,7 +69,7 @@ function mountMcpServer(
     // Values stay in the child environment; argv contains names only so
     // credentials never appear in process listings or diagnostics.
     "-c", `${prefix}.env_vars=${JSON.stringify(Object.keys(server.env))}`,
-    "-c", `${prefix}.default_tools_approval_mode="auto"`,
+    "-c", `${prefix}.default_tools_approval_mode=${JSON.stringify(approvalMode)}`,
   );
 }
 
@@ -147,7 +148,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         mountMcpServer(appServerArgs, env, "openmausbot_connectors", turn.integrations.composio);
       }
       if (turn.integrations?.agents) {
-        mountMcpServer(appServerArgs, env, "agents", turn.integrations.agents);
+        mountMcpServer(appServerArgs, env, "agents", turn.integrations.agents, "approve");
       }
       if (turn.integrations?.computer) {
         const proxyEnv = computerProxyEnv(turn.integrations.computer);

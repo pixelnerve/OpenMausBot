@@ -153,12 +153,13 @@ describe("CodexDriver turns (fake app-server)", () => {
     await recorder.until((event) => event.type === "turn.completed");
     const seen = JSON.parse(readFileSync(dump, "utf8"));
     expect(seen.argv.join(" ")).toContain("mcp_servers.openmausbot_connectors.command");
+    expect(seen.argv.join(" ")).toContain('mcp_servers.openmausbot_connectors.default_tools_approval_mode="auto"');
     expect(seen.argv.join(" ")).toContain("OMB_COMMS_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("per-boot-token");
     expect(seen.env.OMB_COMMS_TOKEN).toBe("per-boot-token");
   });
 
-  it("mounts peer-agent comms without placing the comms token in argv", async () => {
+  it("mounts and preapproves peer-agent comms without placing the comms token in argv", async () => {
     await create();
     const dump = join(scratch, "agents.json");
     process.env.FAKE_CODEX_DUMP = dump;
@@ -186,6 +187,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     const seen = JSON.parse(readFileSync(dump, "utf8"));
     expect(seen.argv.join(" ")).toContain("mcp_servers.agents.command");
     expect(seen.argv.join(" ")).toContain("/tmp/agents-proxy.js");
+    expect(seen.argv.join(" ")).toContain('mcp_servers.agents.default_tools_approval_mode="approve"');
     expect(seen.argv.join(" ")).toContain("OMB_COMMS_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("peer-comms-secret");
     expect(seen.env.OMB_COMMS_TOKEN).toBe("peer-comms-secret");
