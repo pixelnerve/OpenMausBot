@@ -251,14 +251,28 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         const params = msg.params ?? {};
         const legacy = method === "execCommandApproval" || method === "applyPatchApproval";
         const isQuestion = method === "item/tool/requestUserInput";
+        const isMcpElicitation = method === "mcpServer/elicitation/request";
+        const approvalResult = (allow: boolean) => {
+          if (legacy) return { decision: allow ? "approved" : "denied" };
+          if (isMcpElicitation) {
+            return {
+              action: allow ? "accept" : "decline",
+              content: allow && params.mode !== "url" ? {} : null,
+              _meta: null,
+            };
+          }
+          return { decision: allow ? "accept" : "decline" };
+        };
         const tool =
           method === "item/fileChange/requestApproval" || method === "applyPatchApproval"
             ? "edit"
             : isQuestion
               ? "ask_user"
-              : "shell";
+              : isMcpElicitation
+                ? "connector"
+                : "shell";
         if (config.fullAuto && !isQuestion) {
-          return send({ jsonrpc: "2.0", id: msg.id, result: { decision: legacy ? "approved" : "accept" } });
+          return send({ jsonrpc: "2.0", id: msg.id, result: approvalResult(true) });
         }
         const requestId = newId();
         const summary =
@@ -266,9 +280,11 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             ? params.command
             : Array.isArray(params.questions)
               ? params.questions.map((q: any) => q.question ?? q.header).filter(Boolean).join(" · ")
-              : typeof params.reason === "string"
-                ? params.reason
-                : tool;
+              : typeof params.message === "string"
+                ? params.message
+                : typeof params.reason === "string"
+                  ? params.reason
+                  : tool;
         const choices = isQuestion
           ? (params.questions?.[0]?.options ?? []).map((o: any) => o.label).slice(0, 5)
           : undefined;
@@ -285,7 +301,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             send({
               jsonrpc: "2.0",
               id: msg.id,
-              result: { decision: behavior === "allow" ? (legacy ? "approved" : "accept") : legacy ? "denied" : "decline" },
+              result: approvalResult(behavior === "allow"),
             });
           }
           emit({ ...base(threadId, turnId), type: "request.resolved", requestId, behavior, source });

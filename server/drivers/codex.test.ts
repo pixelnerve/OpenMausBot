@@ -382,6 +382,28 @@ describe("CodexDriver turns (fake app-server)", () => {
     await recorder.until((e) => e.type === "turn.completed" && e.threadId === "t-vm-scope");
   });
 
+  it("answers MCP connector elicitations with the Codex 0.147 response shape", async () => {
+    await create({ mode: "elicitation" });
+    const dump = join(scratch, "dump.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+
+    await instance.adapter.sendTurn({ threadId: "t-connector-approve", text: "create a Google Doc" });
+    const opened = await recorder.until((e) => e.type === "request.opened");
+    expect(opened).toMatchObject({
+      requestType: "permission",
+      tool: "connector",
+      summary: 'Allow the openmausbot_connectors MCP server to run tool "COMPOSIO_MULTI_EXECUTE_TOOL"?',
+    });
+
+    await instance.adapter.respondToRequest("t-connector-approve", opened.requestId!, { behavior: "allow" });
+    await recorder.until((e) => e.type === "turn.completed");
+    expect(JSON.parse(readFileSync(dump, "utf8")).decision).toEqual({
+      action: "accept",
+      content: {},
+      _meta: null,
+    });
+  });
+
   it("auto-approves commands in fullAuto without opening a request", async () => {
     await create({ mode: "approval", fullAuto: true });
     const dump = join(scratch, "dump.json");
@@ -392,6 +414,22 @@ describe("CodexDriver turns (fake app-server)", () => {
 
     expect(recorder.events.some((e) => e.type === "request.opened")).toBe(false);
     expect(JSON.parse(readFileSync(dump, "utf8")).decision).toEqual({ decision: "approved" });
+  });
+
+  it("auto-approves MCP connector elicitations with the Codex 0.147 response shape", async () => {
+    await create({ mode: "elicitation", fullAuto: true });
+    const dump = join(scratch, "dump.json");
+    process.env.FAKE_CODEX_DUMP = dump;
+
+    await instance.adapter.sendTurn({ threadId: "t-connector-auto", text: "create a Google Doc" });
+    await recorder.until((e) => e.type === "turn.completed");
+
+    expect(recorder.events.some((e) => e.type === "request.opened")).toBe(false);
+    expect(JSON.parse(readFileSync(dump, "utf8")).decision).toEqual({
+      action: "accept",
+      content: {},
+      _meta: null,
+    });
   });
 
   it("rejects a second turn while one is in flight", async () => {

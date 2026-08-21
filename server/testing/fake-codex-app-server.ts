@@ -4,7 +4,7 @@
 // initialize/thread/turn handshake, then plays a scripted turn. Like the
 // real app-server, it never exits on its own — the driver kills it.
 //
-//   FAKE_CODEX_MODE   happy (default) | approval | resume | stream | windows-command |
+//   FAKE_CODEX_MODE   happy (default) | approval | elicitation | resume | stream | windows-command |
 //                     logged-in-stdout | logged-out | unauthorized
 //   FAKE_CODEX_DUMP   path to write {argv, env, calls, decision} as JSON
 //
@@ -147,6 +147,22 @@ process.stdin.on("data", (chunk) => {
           const approvalCommand = mode === "windows-command" ? command : "rm -rf scratch";
           out({ jsonrpc: "2.0", id: 100, method: "execCommandApproval", params: { command: approvalCommand } });
           // turn continues from the approval response handler above
+        } else if (mode === "elicitation") {
+          out({
+            jsonrpc: "2.0",
+            id: 100,
+            method: "mcpServer/elicitation/request",
+            params: {
+              threadId: "codex-thread-1",
+              turnId: "turn-1",
+              serverName: "openmausbot_connectors",
+              mode: "form",
+              _meta: null,
+              message: 'Allow the openmausbot_connectors MCP server to run tool "COMPOSIO_MULTI_EXECUTE_TOOL"?',
+              requestedSchema: { type: "object", properties: {} },
+            },
+          });
+          // turn continues from the elicitation response handler above
         } else {
           finishTurn();
         }
