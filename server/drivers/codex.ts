@@ -503,6 +503,12 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           await request("turn/start", {
             threadId: codexThreadId,
             input: [{ type: "text", text: turn.system ? `${turn.system}\n\n${turn.text}` : turn.text }],
+            // Reassert permissions on every turn, including resumed threads.
+            // Older rollouts may have persisted approvalPolicy=never; relying on
+            // thread/start alone would silently keep denying protected writes
+            // such as `git init` instead of opening an approval card.
+            approvalPolicy: config.fullAuto ? "never" : "on-request",
+            sandboxPolicy: { type: config.fullAuto ? "dangerFullAccess" : "workspaceWrite" },
             // Spread, not `effort: turn.effort ?? null`. Probed against
             // codex-cli 0.146.0: null is indistinguishable from an absent key
             // — both leave the thread's current effort alone, emitting no

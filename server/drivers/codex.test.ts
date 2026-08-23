@@ -120,6 +120,10 @@ describe("CodexDriver turns (fake app-server)", () => {
     // persona rides in front of the prompt text — codex has no system slot
     const turnStart = seen.calls.at(-1);
     expect(turnStart.params.input[0].text).toBe("You are Testy.\n\nlist files");
+    expect(turnStart.params).toMatchObject({
+      approvalPolicy: "on-request",
+      sandboxPolicy: { type: "workspaceWrite" },
+    });
     const threadStart = seen.calls.find((c: { method: string }) => c.method === "thread/start");
     expect(threadStart.params).toMatchObject({ model: "gpt-5.6-sol", modelProvider: "openai" });
   });
@@ -320,9 +324,14 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(started).toMatchObject({ sessionId: "codex-thread-9" });
     await recorder.until((e) => e.type === "turn.completed");
 
-    const methods = JSON.parse(readFileSync(dump, "utf8")).calls.map((c: { method: string }) => c.method);
+    const calls = JSON.parse(readFileSync(dump, "utf8")).calls;
+    const methods = calls.map((c: { method: string }) => c.method);
     expect(methods).toContain("thread/resume");
     expect(methods).not.toContain("thread/start");
+    expect(calls.find((c: { method: string }) => c.method === "turn/start").params).toMatchObject({
+      approvalPolicy: "on-request",
+      sandboxPolicy: { type: "workspaceWrite" },
+    });
   });
 
   it("falls back to a fresh thread when resume fails", async () => {
@@ -413,7 +422,12 @@ describe("CodexDriver turns (fake app-server)", () => {
     await recorder.until((e) => e.type === "turn.completed");
 
     expect(recorder.events.some((e) => e.type === "request.opened")).toBe(false);
-    expect(JSON.parse(readFileSync(dump, "utf8")).decision).toEqual({ decision: "approved" });
+    const seen = JSON.parse(readFileSync(dump, "utf8"));
+    expect(seen.decision).toEqual({ decision: "approved" });
+    expect(seen.calls.find((c: { method: string }) => c.method === "turn/start").params).toMatchObject({
+      approvalPolicy: "never",
+      sandboxPolicy: { type: "dangerFullAccess" },
+    });
   });
 
   it("auto-approves MCP connector elicitations with the Codex 0.147 response shape", async () => {
